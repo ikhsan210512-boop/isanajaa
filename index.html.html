@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuaraKita AI - Text to Speech Studio</title>
+    <!-- Memuat Tailwind CSS untuk styling modern dan responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Font Inter dari Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Memuat FontAwesome untuk ikon yang tajam -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Memuat LameJS untuk konversi/encoding audio ke format MP3 secara client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Kustomisasi scrollbar agar tampak elegan */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Animasi gelombang suara */
+        @keyframes pulse-bar {
+            0%, 100% { height: 20%; }
+            50% { height: 95%; }
+        }
+        .visualizer-bar {
+            animation: pulse-bar 0.8s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-wave-square text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">SuaraKita <span class="text-indigo-400">Studio</span></h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">Ubah Teks Menjadi Suara Ekspresif & Unduh MP3</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="copySourceBtn" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 hover:bg-indigo-600 text-slate-200 border border-slate-700 hover:border-indigo-500 flex items-center gap-1.5 transition-all cursor-pointer">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Salin Kode</span>
+                </button>
+                <span id="engineStatus" class="text-xs px-3 py-1.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                    Neural Voice HD Aktif
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Konten Utama -->
+    <main class="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-grow">
+        
+        <!-- Kotak Notifikasi / Pesan Status (Pengganti alert) -->
+        <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Panel Kontrol Kiri (Pengaturan Suara) -->
+            <div class="lg:col-span-5 space-y-5">
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-400"></i> Konfigurasi Vokal
+                        </h2>
+                        <button id="resetBtn" class="text-xs text-slate-400 hover:text-indigo-400 transition-colors">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                        </button>
+                    </div>
+
+                    <!-- 1. Dropdown Pilihan Bahasa -->
+                    <div>
+                        <label for="languageSelect" class="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-2">
+                            1. Pilih Bahasa
+                        </label>
+                        <div class="relative">
+                            <select id="languageSelect" class="w-full appearance-none bg-slate-950 border border-slate-700/80 hover:border-indigo-500/50 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer">
+                                <option value="id-ID" selected>🇮🇩 Bahasa Indonesia (Utama)</option>
+                                <option value="en-US">🇺🇸 Bahasa Inggris (US)</option>
+                                <option value="en-GB">🇬🇧 Bahasa Inggris (UK)</option>
+                                <option value="ja-JP">🇯🇵 Bahasa Jepang (日本語)</option>
+                                <option value="ko-KR">🇰🇷 Bahasa Korea (한국어)</option>
+                                <option value="ar-SA">🇸🇦 Bahasa Arab (العربية)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Pilihan Jenis Kelamin (Pria / Wanita) -->
+                    <div>
+                        <label class="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-2">
+                            2. Karakter Suara (Gender)
+                        </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" data-gender="female" class="gender-btn active flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-indigo-500 bg-indigo-500/15 text-indigo-300 font-medium text-sm transition-all shadow-sm">
+                                <i class="fa-solid fa-venus text-pink-400 text-base"></i>
+                                <span>Wanita</span>
+                            </button>
+                            <button type="button" data-gender="male" class="gender-btn flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 font-medium text-sm transition-all">
+                                <i class="fa-solid fa-mars text-sky-400 text-base"></i>
+                                <span>Pria</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3. Tipe Suara Sesuai Jenis Kelamin -->
+                    <div>
+                        <label for="voiceTypeSelect" class="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-2">
+                            3. Tipe & Karakteristik Vokal
+                        </label>
+                        <div class="relative">
+                            <select id="voiceTypeSelect" class="w-full appearance-none bg-slate-950 border border-slate-700/80 hover:border-indigo-500/50 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer">
+                                <!-- Diisi secara dinamis oleh JS sesuai gender -->
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        <p id="voiceTypeDesc" class="mt-1.5 text-xs text-slate-400 italic">Suara wanita muda yang jernih, ramah, dan natural.</p>
+                    </div>
+
+                    <!-- 4. Pilihan Emosi / Vibe -->
+                    <div>
+                        <label class="block text-xs font-medium uppercase tracking-wider text-slate-400 mb-2">
+                            4. Emosi & Nuansa (Vibe)
+                        </label>
+                        <div class="grid grid-cols-3 gap-2" id="emotionGrid">
+                            <button type="button" data-emotion="normal" class="emotion-btn active flex flex-col items-center justify-center p-2.5 rounded-xl border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">😌</span>
+                                <span>Natural</span>
+                            </button>
+                            <button type="button" data-emotion="ceria" class="emotion-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">😄</span>
+                                <span>Ceria</span>
+                            </button>
+                            <button type="button" data-emotion="sedih" class="emotion-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">😢</span>
+                                <span>Sedih</span>
+                            </button>
+                            <button type="button" data-emotion="puitis" class="emotion-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">✨</span>
+                                <span>Puitis</span>
+                            </button>
+                            <button type="button" data-emotion="tegas" class="emotion-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">🔥</span>
+                                <span>Tegas</span>
+                            </button>
+                            <button type="button" data-emotion="bisik" class="emotion-btn flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200 text-xs font-medium transition-all">
+                                <span class="text-lg mb-1">🤫</span>
+                                <span>Tenang</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Pengaturan Halus (Pitch & Kecepatan) -->
+                    <div class="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                <span>Kecepatan</span>
+                                <span id="rateValue" class="text-indigo-400 font-semibold">1.0x</span>
+                            </div>
+                            <input type="range" id="rateSlider" min="0.5" max="1.6" step="0.05" value="1.0" class="w-full accent-indigo-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                <span>Nada (Pitch)</span>
+                                <span id="pitchValue" class="text-indigo-400 font-semibold">1.0</span>
+                            </div>
+                            <input type="range" id="pitchSlider" min="0.5" max="1.5" step="0.05" value="1.0" class="w-full accent-indigo-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- Pemilih Mesin Suara Sistem (Opsional/Lanjutan) -->
+                    <div class="pt-1">
+                        <details class="text-xs text-slate-400">
+                            <summary class="cursor-pointer hover:text-slate-300 select-none flex items-center gap-1.5">
+                                <i class="fa-solid fa-microchip text-indigo-400"></i> Mode Mesin Suara (Neural HD / Offline)
+                            </summary>
+                            <div class="mt-2 space-y-2">
+                                <select id="engineModeSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none">
+                                    <option value="neural" selected>✨ Neural AI Human Voice (Kualitas Studio - Rekomendasi)</option>
+                                    <option value="browser">📱 Browser Offline Voice (Tanpa Internet)</option>
+                                </select>
+                                <select id="systemVoiceSelect" class="hidden w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none">
+                                    <option value="">Otomatis (Suara Perangkat)</option>
+                                </select>
+                                <p id="activeEngineNote" class="text-[11px] text-slate-500">Menggunakan vokal manusia neural ekspresif dengan intonasi alami.</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Kanan (Editor Narasi Tanpa Batas & Output MP3) -->
+            <div class="lg:col-span-7 flex flex-col gap-5">
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl flex-grow flex flex-col">
+                    
+                    <!-- Header Kolom Narasi -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                            <h2 class="text-base font-semibold text-slate-200">Naskah Narasi</h2>
+                            <span class="text-[11px] px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium">
+                                Tanpa Batas Karakter (∞)
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="sampleTextBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1"></i> Contoh Teks
+                            </button>
+                            <button id="clearTextBtn" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-red-900/40 hover:text-red-300 text-slate-400 transition-colors">
+                                <i class="fa-solid fa-trash-can mr-1"></i> Hapus
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Textarea Narasi Tanpa Batas (Tidak ada atribut maxlength) -->
+                    <div class="relative flex-grow flex flex-col">
+                        <textarea 
+                            id="narrativeInput" 
+                            class="w-full flex-grow min-h-[260px] sm:min-h-[320px] bg-slate-950/90 border border-slate-700/80 focus:border-indigo-500 rounded-xl p-4 text-slate-100 text-base leading-relaxed placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-y transition-all"
+                            placeholder="Ketik atau tempel naskah panjang Anda di sini tanpa batasan karakter...&#10;&#10;Tips: Gunakan tanda baca seperti koma (,) untuk jeda singkat dan titik (.) atau baris baru untuk jeda napas yang alami."
+                        >Selamat datang di SuaraKita Studio. Di sini, setiap kata yang Anda tuliskan akan hidup dengan karakter suara dan emosi yang penuh makna. Silakan pilih gaya bicara favorit Anda, dengarkan hasilnya, dan unduh langsung dalam format MP3.</textarea>
+                    </div>
+
+                    <!-- Statistik Teks & Visualizer -->
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 bg-slate-950/60 px-4 py-2.5 rounded-xl border border-slate-800/80">
+                        <div class="flex items-center gap-4">
+                            <span><strong id="charCount" class="text-slate-200">0</strong> Karakter</span>
+                            <span><strong id="wordCount" class="text-slate-200">0</strong> Kata</span>
+                            <span>Estimasi: <strong id="estDuration" class="text-indigo-400">0 dtk</strong></span>
+                        </div>
+                        
+                        <!-- Animasi Gelombang Audio -->
+                        <div id="visualizer" class="flex items-end gap-1 h-4 opacity-30 transition-opacity">
+                            <span class="w-1 bg-indigo-400 rounded-full h-1.5"></span>
+                            <span class="w-1 bg-purple-400 rounded-full h-3"></span>
+                            <span class="w-1 bg-indigo-400 rounded-full h-2"></span>
+                            <span class="w-1 bg-pink-400 rounded-full h-4"></span>
+                            <span class="w-1 bg-indigo-400 rounded-full h-2.5"></span>
+                            <span class="w-1 bg-purple-400 rounded-full h-1.5"></span>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Aksi Utama (Putar, Jeda, Stop, dan Unduh MP3) -->
+                    <div class="mt-5 grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <!-- Tombol Putar / Dengarkan -->
+                        <button id="playBtn" class="sm:col-span-5 py-3.5 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2.5 transition-all cursor-pointer">
+                            <i class="fa-solid fa-play"></i>
+                            <span>Putar Suara</span>
+                        </button>
+
+                        <!-- Tombol Hentikan -->
+                        <button id="stopBtn" disabled class="sm:col-span-2 py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer">
+                            <i class="fa-solid fa-stop"></i>
+                            <span class="sm:hidden">Stop</span>
+                        </button>
+
+                        <!-- Tombol Unduh MP3 ke Penyimpanan Internal -->
+                        <button id="downloadMp3Btn" class="sm:col-span-5 py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2.5 transition-all cursor-pointer">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Unduh Audio (.MP3)</span>
+                        </button>
+                    </div>
+
+                    <!-- Area Hasil Pemutar & Status Unduhan MP3 -->
+                    <div id="mp3ResultBox" class="hidden mt-4 p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span id="mp3StatusText">File MP3 berhasil dibuat & siap disimpan!</span>
+                            </div>
+                            <span id="mp3FileSize" class="text-xs text-slate-400 font-mono">0 KB</span>
+                        </div>
+                        <audio id="audioPlayer" controls class="w-full h-10 rounded-lg"></audio>
+                        <div class="flex justify-end">
+                            <a id="manualSaveLink" href="#" download="narasi-suarakita.mp3" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg font-medium inline-flex items-center gap-1.5 transition-colors">
+                                <i class="fa-solid fa-floppy-disk"></i> Simpan Ulang ke Perangkat (.MP3)
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
+        <p>SuaraKita Studio &bull; Pemrosesan Teks-ke-Suara & Konversi MP3 Langsung di Perangkat Anda</p>
+    </footer>
+
+    <script>
+        /**
+         * Aplikasi Text-to-Speech (TTS) Studio Pro
+         * Menggunakan Neural Human Voice Engine (Gemini 2.5 Flash TTS) untuk menghasilkan
+         * suara manusia asli yang natural, ekspresif, tidak robotik, serta konversi langsung ke MP3.
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            const apiKey = "AQ.Ab8RN6LAcB4HAtM6OgL0BrviNVCI5y1fll3zzxmMKSy94_aCqA"; // API Key Google AI Studio
+            const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            // --- KONFIGURASI KARAKTER VOKAL MANUSIA YANG BERBEDA & KONTRAS ---
+            const voiceProfiles = {
+                female: [
+                    { id: 'f_young', voiceName: 'Aoede', name: 'Sari - Wanita Muda (Natural & Ramah)', basePitch: 1.12, baseRate: 0.98, styleHint: 'Speak naturally like a friendly young Indonesian woman having a warm conversation', desc: 'Suara wanita muda yang segar, ramah, dan natural seperti berbicara langsung.' },
+                    { id: 'f_warm', voiceName: 'Sulafat', name: 'Ayu - Dewasa (Hangat & Storyteller)', basePitch: 1.03, baseRate: 0.92, styleHint: 'Speak like a warm, gentle, comforting female storyteller with natural breathing', desc: 'Nada keibuan yang lembut dan penuh perasaan, cocok untuk bercerita.' },
+                    { id: 'f_news', voiceName: 'Kore', name: 'Dian - Presenter (Jelas & Elegan)', basePitch: 1.08, baseRate: 1.02, styleHint: 'Speak clearly and articulately like a professional female news anchor or podcast host', desc: 'Artikulasi tajam, elegan, dan profesional layaknya pembawa acara.' },
+                    { id: 'f_cute', voiceName: 'Leda', name: 'Nadia - Ekspresif (Cerah & Lincah)', basePitch: 1.22, baseRate: 1.05, styleHint: 'Speak with youthful, bright, lively, and expressive female intonation', desc: 'Suara lincah penuh semangat dengan ayunan nada yang hidup.' }
+                ],
+                male: [
+                    { id: 'm_deep', voiceName: 'Orus', name: 'Bima - Pria Dewasa (Bariton & Berwibawa)', basePitch: 0.78, baseRate: 0.94, styleHint: 'Speak with a deep, mature, authoritative, warm baritone male voice', desc: 'Suara pria dewasa yang berat, berwibawa, dan mantap.' },
+                    { id: 'm_casual', voiceName: 'Puck', name: 'Raka - Pria Muda (Santai & Podcast)', basePitch: 0.88, baseRate: 0.99, styleHint: 'Speak casually and naturally like a young male podcast host chatting with a friend', desc: 'Gaya obrolan santai dan akrab layaknya podcaster manusia.' },
+                    { id: 'm_narrator', voiceName: 'Charon', name: 'Arif - Narator Film & Dokumenter', basePitch: 0.72, baseRate: 0.89, styleHint: 'Speak like an informative, calm, deep-voiced male documentary narrator with natural pauses', desc: 'Suara narator berat yang tenang dengan jeda napas dramatis.' },
+                    { id: 'm_energetic', voiceName: 'Fenrir', name: 'Dimas - Pembicara Energik', basePitch: 0.93, baseRate: 1.04, styleHint: 'Speak with an energetic, enthusiastic, confident male voice', desc: 'Suara pria penuh energi dengan penekanan kata yang kuat.' }
+                ]
+            };
+
+            const emotionPresets = {
+                normal: { pitchMod: 0.0, rateMod: 0.0, commaPause: 220, periodPause: 480, instruction: 'in a natural, conversational, human tone with realistic breathing pauses', label: 'Natural' },
+                ceria:  { pitchMod: 0.08, rateMod: 0.06, commaPause: 160, periodPause: 340, instruction: 'cheerfully, enthusiastically, with a warm smile in the voice', label: 'Ceria' },
+                sedih:  { pitchMod: -0.07, rateMod: -0.10, commaPause: 350, periodPause: 750, instruction: 'sadly, melancholically, softly, with emotional pauses and a heavy heart', label: 'Sedih' },
+                puitis: { pitchMod: -0.04, rateMod: -0.12, commaPause: 400, periodPause: 850, instruction: 'poetically, expressively, deeply moving, with dramatic and soulful pauses', label: 'Puitis' },
+                tegas:  { pitchMod: -0.05, rateMod: 0.02, commaPause: 180, periodPause: 400, instruction: 'firmly, confidently, persuasively, with strong emphasis', label: 'Tegas' },
+                bisik:  { pitchMod: -0.03, rateMod: -0.08, commaPause: 300, periodPause: 650, instruction: 'calmly, soothingly, softly, in a relaxed late-night radio host tone', label: 'Tenang' }
+            };
+
+            const sampleTexts = {
+                'id-ID': "Pernahkah kamu duduk sejenak di sore hari, mendengarkan angin berbisik di antara dedaunan? Terkadang, ketenangan bukan tentang seberapa sunyi dunia di sekitar kita, melainkan seberapa damai hati kita menerima setiap cerita.",
+                'en-US': "Have you ever paused for a moment in the quiet evening, just to listen to your own thoughts? True storytelling isn't just about reading words—it's about feeling every single breath between them.",
+                'en-GB': "Good evening. Notice how a gentle pause after a comma, and a warm drop in tone at the end of a sentence, makes spoken words sound genuinely human.",
+                'ja-JP': "こんにちは。句読点ごとに自然な息継ぎを入れることで、まるで人間が語りかけているような温かみのある音声になります。",
+                'ko-KR': "안녕하세요. 문장 사이의 자연스러운 호흡과 억양 변화로 훨씬 더 사람다운 목소리를 경험해 보세요.",
+                'ar-SA': "مرحباً بكم. استمع إلى كيف تجعل الوقفات الطبيعية وتغير النبرة الصوت يبدو بشرياً ودافئاً."
+            };
+
+            const languageNames = {
+                'id-ID': 'Indonesian',
+                'en-US': 'American English',
+                'en-GB': 'British English',
+                'ja-JP': 'Japanese',
+                'ko-KR': 'Korean',
+                'ar-SA': 'Arabic'
+            };
+
+            // --- ELEMEN DOM ---
+            const languageSelect = document.getElementById('languageSelect');
+            const genderBtns = document.querySelectorAll('.gender-btn');
+            const voiceTypeSelect = document.getElementById('voiceTypeSelect');
+            const voiceTypeDesc = document.getElementById('voiceTypeDesc');
+            const emotionBtns = document.querySelectorAll('.emotion-btn');
+            const rateSlider = document.getElementById('rateSlider');
+            const pitchSlider = document.getElementById('pitchSlider');
+            const rateValue = document.getElementById('rateValue');
+            const pitchValue = document.getElementById('pitchValue');
+            const engineModeSelect = document.getElementById('engineModeSelect');
+            const systemVoiceSelect = document.getElementById('systemVoiceSelect');
+            const activeEngineNote = document.getElementById('activeEngineNote');
+            
+            const narrativeInput = document.getElementById('narrativeInput');
+            const charCount = document.getElementById('charCount');
+            const wordCount = document.getElementById('wordCount');
+            const estDuration = document.getElementById('estDuration');
+            const visualizer = document.getElementById('visualizer');
+            
+            const playBtn = document.getElementById('playBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const downloadMp3Btn = document.getElementById('downloadMp3Btn');
+            const copySourceBtn = document.getElementById('copySourceBtn');
+            const sampleTextBtn = document.getElementById('sampleTextBtn');
+            const clearTextBtn = document.getElementById('clearTextBtn');
+            const resetBtn = document.getElementById('resetBtn');
+
+            const mp3ResultBox = document.getElementById('mp3ResultBox');
+            const mp3StatusText = document.getElementById('mp3StatusText');
+            const mp3FileSize = document.getElementById('mp3FileSize');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const manualSaveLink = document.getElementById('manualSaveLink');
+            const toastContainer = document.getElementById('toastContainer');
+
+            // --- STATE APLIKASI ---
+            let state = {
+                lang: 'id-ID',
+                gender: 'female',
+                voiceTypeId: 'f_young',
+                emotion: 'normal',
+                userRateMultiplier: 1.0,
+                userPitchOffset: 0.0,
+                engineMode: 'neural',
+                isSpeaking: false,
+                isPaused: false,
+                pauseTimer: null,
+                availableVoices: [],
+                // Cache audio yang sudah di-generate agar putar ulang & unduh MP3 instan
+                lastAudioCacheKey: '',
+                lastPcm16: null,
+                lastSampleRate: 24000,
+                lastMp3Blob: null,
+                activeAudioElement: null
+            };
+
+            const synth = window.speechSynthesis;
+
+            // --- FUNGSI BANTUAN UI ---
+            function updateTextStats() {
+                const text = narrativeInput.value;
+                const chars = text.length;
+                const trimmed = text.trim();
+                const words = trimmed ? trimmed.split(/\s+/).length : 0;
+                const { rate } = getCalculatedAudioParams();
+                const estSeconds = Math.ceil(words / (2.3 * rate));
+
+                charCount.textContent = chars.toLocaleString('id-ID');
+                wordCount.textContent = words.toLocaleString('id-ID');
+                estDuration.textContent = estSeconds < 60
+                    ? `${estSeconds} dtk`
+                    : `${Math.floor(estSeconds / 60)} mnt ${estSeconds % 60} dtk`;
+            }
+
+            function setVisualizerActive(active) {
+                const bars = visualizer.querySelectorAll('span');
+                if (active) {
+                    visualizer.classList.remove('opacity-30');
+                    visualizer.classList.add('opacity-100');
+                    bars.forEach((bar, i) => {
+                        bar.classList.add('visualizer-bar');
+                        bar.style.animationDelay = `${i * 0.12}s`;
+                    });
+                } else {
+                    visualizer.classList.add('opacity-30');
+                    visualizer.classList.remove('opacity-100');
+                    bars.forEach(bar => {
+                        bar.classList.remove('visualizer-bar');
+                    });
+                }
+            }
+
+            function showToast(message, type = 'info') {
+                const colors = {
+                    info: 'bg-slate-900 border-indigo-500/50 text-slate-100',
+                    success: 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200',
+                    warning: 'bg-amber-950/90 border-amber-500/50 text-amber-200',
+                    error: 'bg-red-950/90 border-red-500/50 text-red-200'
+                };
+                const icons = {
+                    info: 'fa-circle-info text-indigo-400',
+                    success: 'fa-circle-check text-emerald-400',
+                    warning: 'fa-triangle-exclamation text-amber-400',
+                    error: 'fa-circle-xmark text-red-400'
+                };
+
+                const toast = document.createElement('div');
+                toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl backdrop-blur-md text-xs font-medium transition-all duration-300 ${colors[type] || colors.info}`;
+                toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-base"></i><span>${message}</span>`;
+
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(8px)';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3800);
+            }
+
+            // --- INISIALISASI SUARA OFFLINE CADANGAN ---
+            function loadSystemVoices() {
+                state.availableVoices = synth.getVoices();
+                systemVoiceSelect.innerHTML = '<option value="">Otomatis (Suara Perangkat)</option>';
+                state.availableVoices.forEach((voice, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    systemVoiceSelect.appendChild(option);
+                });
+            }
+
+            loadSystemVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = loadSystemVoices;
+            }
+
+            function updateEngineInfoNote() {
+                const profile = getCurrentProfile();
+                if (state.engineMode === 'neural') {
+                    activeEngineNote.textContent = `Vokal Neural HD: ${profile.name} (${profile.voiceName})`;
+                } else {
+                    activeEngineNote.textContent = `Mode Offline Browser aktif.`;
+                }
+            }
+
+            function getCurrentProfile() {
+                const list = voiceProfiles[state.gender];
+                return list.find(p => p.id === state.voiceTypeId) || list[0];
+            }
+
+            function updateVoiceTypes() {
+                const list = voiceProfiles[state.gender];
+                voiceTypeSelect.innerHTML = '';
+                list.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.textContent = item.name;
+                    voiceTypeSelect.appendChild(opt);
+                });
+                state.voiceTypeId = list[0].id;
+                voiceTypeDesc.textContent = list[0].desc;
+                updateEngineInfoNote();
+            }
+
+            function getCalculatedAudioParams() {
+                const profile = getCurrentProfile();
+                const emo = emotionPresets[state.emotion] || emotionPresets.normal;
+                let finalPitch = Math.max(0.55, Math.min(1.65, profile.basePitch + emo.pitchMod + state.userPitchOffset));
+                let finalRate = Math.max(0.55, Math.min(1.65, (profile.baseRate + emo.rateMod) * state.userRateMultiplier));
+                return { pitch: finalPitch, rate: finalRate, profile, emo };
+            }
+
+            // --- KONVERSI BASE64 & PCM KE WAV / MP3 ---
+            function base64ToArrayBuffer(base64) {
+                const binaryString = atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            }
+
+            function pcm16ToWavBlob(pcm16, sampleRate) {
+                const numChannels = 1;
+                const bytesPerSample = 2;
+                const blockAlign = numChannels * bytesPerSample;
+                const byteRate = sampleRate * blockAlign;
+                const dataSize = pcm16.length * bytesPerSample;
+                const buffer = new ArrayBuffer(44 + dataSize);
+                const view = new DataView(buffer);
+
+                const writeStr = (offset, str) => {
+                    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+                };
+
+                writeStr(0, 'RIFF');
+                view.setUint32(4, 36 + dataSize, true);
+                writeStr(8, 'WAVE');
+                writeStr(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, byteRate, true);
+                view.setUint16(32, blockAlign, true);
+                view.setUint16(34, 16, true);
+                writeStr(36, 'data');
+                view.setUint32(40, dataSize, true);
+
+                let offset = 44;
+                for (let i = 0; i < pcm16.length; i++, offset += 2) {
+                    view.setInt16(offset, pcm16[i], true);
+                }
+                return new Blob([buffer], { type: 'audio/wav' });
+            }
+
+            function encodePcm16ToMp3Blob(pcm16, sampleRate) {
+                if (typeof lamejs === 'undefined') {
+                    throw new Error('Library MP3 encoder belum termuat.');
+                }
+                const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+                const mp3Data = [];
+                const sampleBlockSize = 1152;
+
+                for (let i = 0; i < pcm16.length; i += sampleBlockSize) {
+                    const chunk = pcm16.subarray(i, i + sampleBlockSize);
+                    const mp3buf = mp3encoder.encodeBuffer(chunk);
+                    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+                }
+
+                const mp3End = mp3encoder.flush();
+                if (mp3End.length > 0) mp3Data.push(mp3End);
+
+                return new Blob(mp3Data, { type: 'audio/mp3' });
+            }
+
+            // --- PEMECAH NASKAH PANJANG UNTUK NARASI TANPA BATAS ---
+            function splitLongTextIntoChunks(text, maxChars = 1200) {
+                if (text.length <= maxChars) return [text];
+                const sentences = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+                const chunks = [];
+                let currentChunk = '';
+
+                for (const sentence of sentences) {
+                    if ((currentChunk + sentence).length > maxChars && currentChunk.trim().length > 0) {
+                        chunks.push(currentChunk.trim());
+                        currentChunk = sentence;
+                    } else {
+                        currentChunk += sentence;
+                    }
+                }
+                if (currentChunk.trim().length > 0) chunks.push(currentChunk.trim());
+                return chunks;
+            }
+
+            // --- PANGGILAN NEURAL TTS API (SUARA MANUSIA ASLI SETARA ELEVENLABS) ---
+            async function fetchNeuralTtsChunk(chunkText, retryCount = 0) {
+                const profile = getCurrentProfile();
+                const emo = emotionPresets[state.emotion] || emotionPresets.normal;
+                const langName = languageNames[state.lang] || 'Indonesian';
+
+                let paceDesc = 'at a natural, comfortable human speaking pace';
+                if (state.userRateMultiplier >= 1.2) paceDesc = 'at a slightly brisk, lively speaking pace';
+                else if (state.userRateMultiplier <= 0.85) paceDesc = 'slowly, thoughtfully, and unhurriedly';
+
+                const directorPrompt = `Read the following ${langName} text aloud as a real human voice actor (${profile.styleHint}), ${emo.instruction}, ${paceDesc}. Express natural human intonation, subtle breathing, and authentic emotion without sounding robotic:\n\n"${chunkText}"`;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: directorPrompt }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: {
+                                    voiceName: profile.voiceName
+                                }
+                            }
+                        }
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
+                };
+
+                try {
+                    const response = await fetch(ttsApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if ((response.status === 429 || response.status >= 500) && retryCount < 3) {
+                            await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 1000));
+                            return fetchNeuralTtsChunk(chunkText, retryCount + 1);
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const part = result?.candidates?.[0]?.content?.parts?.[0];
+                    const audioData = part?.inlineData?.data;
+                    const mimeType = part?.inlineData?.mimeType || '';
+
+                    if (!audioData || !mimeType.startsWith('audio/')) {
+                        throw new Error('Respons audio tidak valid.');
+                    }
+
+                    const rateMatch = mimeType.match(/rate=(\d+)/);
+                    const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
+                    const arrayBuf = base64ToArrayBuffer(audioData);
+                    return { pcm16: new Int16Array(arrayBuf), sampleRate };
+                } catch (err) {
+                    if (retryCount < 2) {
+                        await new Promise(r => setTimeout(r, Math.pow(2, retryCount) * 1000));
+                        return fetchNeuralTtsChunk(chunkText, retryCount + 1);
+                    }
+                    throw err;
+                }
+            }
+
+            async function generateFullNeuralAudio(text) {
+                const cacheKey = `${state.lang}|${state.gender}|${state.voiceTypeId}|${state.emotion}|${state.userRateMultiplier}|${text}`;
+                if (state.lastAudioCacheKey === cacheKey && state.lastPcm16) {
+                    return { pcm16: state.lastPcm16, sampleRate: state.lastSampleRate };
+                }
+
+                const chunks = splitLongTextIntoChunks(text, 1200);
+                const pcmParts = [];
+                let totalLength = 0;
+                let finalSampleRate = 24000;
+
+                for (let i = 0; i < chunks.length; i++) {
+                    if (chunks.length > 1) {
+                        playBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Bagian ${i + 1}/${chunks.length}...</span>`;
+                    }
+                    const { pcm16, sampleRate } = await fetchNeuralTtsChunk(chunks[i]);
+                    finalSampleRate = sampleRate;
+                    pcmParts.push(pcm16);
+                    totalLength += pcm16.length;
+                }
+
+                const combinedPcm = new Int16Array(totalLength);
+                let offset = 0;
+                for (const part of pcmParts) {
+                    combinedPcm.set(part, offset);
+                    offset += part.length;
+                }
+
+                state.lastAudioCacheKey = cacheKey;
+                state.lastPcm16 = combinedPcm;
+                state.lastSampleRate = finalSampleRate;
+                state.lastMp3Blob = null;
+
+                return { pcm16: combinedPcm, sampleRate: finalSampleRate };
+            }
+
+            // --- PEMUTARAN SUARA UTAMA ---
+            async function playSpeech() {
+                const text = narrativeInput.value.trim();
+                if (!text) {
+                    showToast('Silakan masukkan teks narasi terlebih dahulu.', 'warning');
+                    narrativeInput.focus();
+                    return;
+                }
+
+                // Jika sedang dijeda
+                if (state.isSpeaking && state.isPaused) {
+                    if (state.activeAudioElement) {
+                        state.activeAudioElement.play();
+                    } else {
+                        synth.resume();
+                    }
+                    state.isPaused = false;
+                    playBtn.innerHTML = '<i class="fa-solid fa-pause"></i><span>Jeda Suara</span>';
+                    setVisualizerActive(true);
+                    return;
+                }
+
+                // Jika sedang berbicara -> Jeda
+                if (state.isSpeaking && !state.isPaused) {
+                    if (state.activeAudioElement) {
+                        state.activeAudioElement.pause();
+                    } else {
+                        synth.pause();
+                    }
+                    state.isPaused = true;
+                    clearTimeout(state.pauseTimer);
+                    playBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Lanjutkan</span>';
+                    setVisualizerActive(false);
+                    return;
+                }
+
+                stopSpeech();
+
+                if (state.engineMode === 'neural') {
+                    playBtn.disabled = true;
+                    playBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Menghasilkan Suara...</span>';
+
+                    try {
+                        const { pcm16, sampleRate } = await generateFullNeuralAudio(text);
+                        const wavBlob = pcm16ToWavBlob(pcm16, sampleRate);
+                        const audioUrl = URL.createObjectURL(wavBlob);
+
+                        const audioEl = new Audio(audioUrl);
+                        // Sesuaikan pitch halus jika pengguna menggeser slider pitch
+                        audioEl.playbackRate = Math.max(0.75, Math.min(1.35, 1.0 + state.userPitchOffset * 0.35));
+                        state.activeAudioElement = audioEl;
+
+                        audioEl.onplay = () => {
+                            state.isSpeaking = true;
+                            state.isPaused = false;
+                            playBtn.disabled = false;
+                            stopBtn.disabled = false;
+                            playBtn.innerHTML = '<i class="fa-solid fa-pause"></i><span>Jeda Suara</span>';
+                            setVisualizerActive(true);
+                        };
+
+                        audioEl.onended = () => {
+                            resetPlaybackUI();
+                        };
+
+                        audioEl.onerror = () => {
+                            resetPlaybackUI();
+                            showToast('Gagal memutar audio neural.', 'error');
+                        };
+
+                        await audioEl.play();
+                    } catch (err) {
+                        console.warn('Neural TTS fallback ke browser:', err);
+                        playBtn.disabled = false;
+                        showToast('Beralih ke suara perangkat...', 'warning');
+                        playBrowserFallbackSpeech(text);
+                    }
+                } else {
+                    playBrowserFallbackSpeech(text);
+                }
+            }
+
+            function playBrowserFallbackSpeech(text) {
+                const { pitch, rate } = getCalculatedAudioParams();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = state.lang;
+                utterance.pitch = pitch;
+                utterance.rate = rate;
+
+                if (systemVoiceSelect.value !== '') {
+                    utterance.voice = state.availableVoices[parseInt(systemVoiceSelect.value, 10)];
+                }
+
+                state.isSpeaking = true;
+                state.isPaused = false;
+                stopBtn.disabled = false;
+                playBtn.innerHTML = '<i class="fa-solid fa-pause"></i><span>Jeda Suara</span>';
+                setVisualizerActive(true);
+
+                utterance.onend = resetPlaybackUI;
+                utterance.onerror = resetPlaybackUI;
+                synth.speak(utterance);
+            }
+
+            function resetPlaybackUI() {
+                clearTimeout(state.pauseTimer);
+                state.isSpeaking = false;
+                state.isPaused = false;
+                playBtn.disabled = false;
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Putar Suara</span>';
+                stopBtn.disabled = true;
+                setVisualizerActive(false);
+            }
+
+            function stopSpeech() {
+                clearTimeout(state.pauseTimer);
+                if (state.activeAudioElement) {
+                    state.activeAudioElement.pause();
+                    state.activeAudioElement.currentTime = 0;
+                    state.activeAudioElement = null;
+                }
+                synth.cancel();
+                resetPlaybackUI();
+            }
+
+            // --- GENERATOR & PENGUNDUH FILE MP3 KE PENYIMPANAN INTERNAL ---
+            async function generateAndDownloadMP3() {
+                const text = narrativeInput.value.trim();
+                if (!text) {
+                    showToast('Tulis narasi terlebih dahulu sebelum mengunduh MP3.', 'warning');
+                    narrativeInput.focus();
+                    return;
+                }
+
+                const originalBtnHtml = downloadMp3Btn.innerHTML;
+                downloadMp3Btn.disabled = true;
+                downloadMp3Btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Mengonversi MP3...</span>';
+
+                try {
+                    const { pcm16, sampleRate } = await generateFullNeuralAudio(text);
+                    const mp3Blob = state.lastMp3Blob || encodePcm16ToMp3Blob(pcm16, sampleRate);
+                    state.lastMp3Blob = mp3Blob;
+
+                    const url = URL.createObjectURL(mp3Blob);
+                    const profile = getCurrentProfile();
+                    const charSlug = profile.name.split(' ')[0].toLowerCase();
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                    const filename = `SuaraKita-${charSlug}-${state.emotion}-${timestamp}.mp3`;
+
+                    audioPlayer.src = url;
+                    manualSaveLink.href = url;
+                    manualSaveLink.download = filename;
+                    mp3FileSize.textContent = `${(mp3Blob.size / 1024).toFixed(1)} KB • MP3 128kbps`;
+                    mp3ResultBox.classList.remove('hidden');
+
+                    const tempLink = document.createElement('a');
+                    tempLink.href = url;
+                    tempLink.download = filename;
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+
+                    showToast(`Berhasil! Suara asli "${filename}" diunduh ke penyimpanan internal.`, 'success');
+                } catch (err) {
+                    console.error('MP3 Generation Error:', err);
+                    showToast('Gagal memproses audio MP3: ' + err.message, 'error');
+                } finally {
+                    downloadMp3Btn.disabled = false;
+                    downloadMp3Btn.innerHTML = originalBtnHtml;
+                }
+            }
+
+            // --- EVENT LISTENERS ---
+            languageSelect.addEventListener('change', (e) => {
+                state.lang = e.target.value;
+                stopSpeech();
+                showToast(`Bahasa diubah ke: ${e.target.options[e.target.selectedIndex].text}`, 'info');
+            });
+
+            genderBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    genderBtns.forEach(b => {
+                        b.classList.remove('active', 'border-indigo-500', 'bg-indigo-500/15', 'text-indigo-300');
+                        b.classList.add('border-slate-800', 'bg-slate-950/60', 'text-slate-400');
+                    });
+                    btn.classList.add('active', 'border-indigo-500', 'bg-indigo-500/15', 'text-indigo-300');
+                    btn.classList.remove('border-slate-800', 'bg-slate-950/60', 'text-slate-400');
+
+                    state.gender = btn.dataset.gender;
+                    updateVoiceTypes();
+                    stopSpeech();
+                });
+            });
+
+            voiceTypeSelect.addEventListener('change', (e) => {
+                state.voiceTypeId = e.target.value;
+                const found = voiceProfiles[state.gender].find(v => v.id === state.voiceTypeId);
+                if (found) voiceTypeDesc.textContent = found.desc;
+                updateEngineInfoNote();
+                stopSpeech();
+            });
+
+            engineModeSelect.addEventListener('change', (e) => {
+                state.engineMode = e.target.value;
+                if (state.engineMode === 'browser') {
+                    systemVoiceSelect.classList.remove('hidden');
+                } else {
+                    systemVoiceSelect.classList.add('hidden');
+                }
+                updateEngineInfoNote();
+                stopSpeech();
+            });
+
+            emotionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    emotionBtns.forEach(b => {
+                        b.classList.remove('active', 'border-indigo-500', 'bg-indigo-500/15', 'text-indigo-300');
+                        b.classList.add('border-slate-800', 'bg-slate-950/60', 'text-slate-400');
+                    });
+                    btn.classList.add('active', 'border-indigo-500', 'bg-indigo-500/15', 'text-indigo-300');
+                    btn.classList.remove('border-slate-800', 'bg-slate-950/60', 'text-slate-400');
+
+                    state.emotion = btn.dataset.emotion;
+                    stopSpeech();
+                });
+            });
+
+            rateSlider.addEventListener('input', (e) => {
+                state.userRateMultiplier = parseFloat(e.target.value);
+                rateValue.textContent = `${state.userRateMultiplier.toFixed(2)}x`;
+                updateTextStats();
+            });
+
+            pitchSlider.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                state.userPitchOffset = (val - 1.0) * 0.6;
+                pitchValue.textContent = val.toFixed(2);
+            });
+
+            narrativeInput.addEventListener('input', updateTextStats);
+
+            playBtn.addEventListener('click', playSpeech);
+            stopBtn.addEventListener('click', stopSpeech);
+            downloadMp3Btn.addEventListener('click', generateAndDownloadMP3);
+
+            copySourceBtn.addEventListener('click', () => {
+                const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+                const tempArea = document.createElement('textarea');
+                tempArea.value = fullHtml;
+                document.body.appendChild(tempArea);
+                tempArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempArea);
+                showToast('Seluruh kode HTML berhasil disalin ke clipboard!', 'success');
+            });
+
+            sampleTextBtn.addEventListener('click', () => {
+                narrativeInput.value = sampleTexts[state.lang] || sampleTexts['id-ID'];
+                updateTextStats();
+                showToast('Contoh narasi dimuat.', 'info');
+            });
+
+            clearTextBtn.addEventListener('click', () => {
+                stopSpeech();
+                narrativeInput.value = '';
+                updateTextStats();
+                narrativeInput.focus();
+            });
+
+            resetBtn.addEventListener('click', () => {
+                stopSpeech();
+                languageSelect.value = 'id-ID';
+                state.lang = 'id-ID';
+                state.userRateMultiplier = 1.0;
+                state.userPitchOffset = 0.0;
+                rateSlider.value = 1.0;
+                pitchSlider.value = 1.0;
+                rateValue.textContent = '1.0x';
+                pitchValue.textContent = '1.0';
+                engineModeSelect.value = 'neural';
+                state.engineMode = 'neural';
+                systemVoiceSelect.classList.add('hidden');
+                
+                genderBtns[0].click();
+                emotionBtns[0].click();
+                updateEngineInfoNote();
+                showToast('Pengaturan vokal dikembalikan ke awal.', 'info');
+            });
+
+            updateVoiceTypes();
+            updateTextStats();
+        });
+    </script>
+</body>
+</html>
